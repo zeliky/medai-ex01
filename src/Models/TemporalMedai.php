@@ -29,8 +29,8 @@ class TemporalMedai
             $params['client_id'] = intval($searchQry['client_id']);
         }
 
-        if (!empty($searchQry['loinc'])) {
-            $params['loinc'] = trim($searchQry['loinc']);
+        if (!empty($searchQry['loinc_id'])) {
+            $params['loinc'] = trim($searchQry['loinc_id']);
         }
 
 
@@ -57,7 +57,7 @@ class TemporalMedai
         if (!empty($searchQry['from_date'])) {
             $fromTime = \DateTime::createFromFormat('Y-m-d', $searchQry['from_date']);
 
-            if (!empty($dtime)) {
+            if ($fromTime && !empty($dtime)) {
                 $fromTime->setTime(0, 0, 0);
                 $params['from_time'] = $dtime->format('Y-m-d H:i:s');
             }
@@ -65,7 +65,7 @@ class TemporalMedai
         }
         if (!empty($searchQry['from_hour'])) {
             $dtime = \DateTime::createFromFormat('H:i', $searchQry['from_hour']);
-            if (!empty($dtime)) {
+            if ($fromTime && !empty($dtime)) {
                 $fromTime->setTime($dtime->format('H'), $dtime->format('i'));
                 $params['from_time'] = $fromTime->format('Y-m-d H:i:s');
             }
@@ -129,8 +129,10 @@ class TemporalMedai
     {
         $params =  self::prepareParams($searchQry);
 
-        $sql = "SELECT *
-                from  TemporalMedai
+        $sql = "SELECT c.first_name, c.last_name, t.*
+                from  TemporalMedai as t
+                    inner join Clients as c on t.client_id = c.id
+                
                 WHERE  ";
 
         $whereQry =['is_deleted=0'];
@@ -156,25 +158,32 @@ class TemporalMedai
         }
 
         if (!empty($whereQry)){
-            $sql .= implode(' AND ', $whereQry);
+            $sql .= implode(PHP_EOL.' AND ', $whereQry);
         }
         $offset = $page* $pageSize;
-        $sql .= " LIMIT $offset,$pageSize ";
+        $sql .= "\n ORDER BY  valid_start_time ";
+        $sql .= "\n LIMIT $offset,$pageSize ";
 
         $db= Db::getInstance();
         $results = $db->select($sql, $params, Db::QUERY_RESULTS_OBJECT_ROWS);
+        #echo ($sql);
+        #echo(json_encode($params));
+        #error_log($sql);
+        #error_log(json_encode($params));
 
-        error_log($sql);
-        error_log(json_encode($params));
-        return $results;
-        /*return [
-            'sql' => $sql,
-            'params' => $params,
+        $cliParams =[];
+        foreach($params as $k=>$v) {
+            $cliParams[':'.$k] = "'".$v ."'";
+        }
+        $sql = str_replace(array_keys($cliParams), array_values($cliParams), $sql);
+
+        return [
+            'qry' => $sql,
             'data' => $results,
-        ];*/
+        ];
     }
 
-    public static function addRecord(array $data): array
+    public static function addRecord(array $data, $returnNewRecord=true): ?array
     {
         $record = new MedaiRecord($data);
         $values = $record->toDbRecord();
@@ -188,7 +197,9 @@ class TemporalMedai
 
         $db = Db::getInstance();
         $id= $db->insert('TemporalMedai', $values);
-        return self::find($id);
+        if ($returnNewRecord)
+            return self::find($id);
+        return null;
     }
 
     public static  function updateRecordByKeys($firstName, $lastName, $loincCode, $validTime, $newValue): array

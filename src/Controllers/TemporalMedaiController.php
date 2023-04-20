@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use App\Beans\MedaiRecord;
 use App\Models\TemporalMedai;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -13,20 +14,39 @@ class TemporalMedaiController extends BaseController
     public function import(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
     {
         $uploadedFiles = $request->getUploadedFiles();
-        $uploadedFile = $uploadedFiles['medai-data'];
+        $uploadedFile = $uploadedFiles['filename'];
         if ($uploadedFile->getError() === UPLOAD_ERR_OK) {
-            if (($handle = fopen($uploadedFile, "r")) !== FALSE) {
+            $first = true;
+            $headers = [];
+            if (($handle = fopen($uploadedFile->getFilePath(), "r")) !== FALSE) {
                 while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
-                    $num = count($data);
-                    echo "<p> $num fields in line $row: <br /></p>\n";
-                    $row++;
-                    for ($c=0; $c < $num; $c++) {
-                        echo $data[$c] . "<br />\n";
+                    if ($first){
+                        $first = false;
+                        $headers = $data;
+                        continue;
+                    } else {
+                        $row = array_combine($headers,$data) ;
+                        try {
+                            TemporalMedai::addRecord([
+                                    'first_name' => $row['First name'] ?? '',
+                                    'last_name' => $row['Last name'] ?? '',
+                                    'loinc_code' => $row['LOINC-NUM'] ?? '',
+                                    'value' => $row['Value'] ?? '',
+                                    'unit' => $row['Unit'] ?? '',
+                                    'valid_start_time' => $row['Valid start time'] ?? '',
+                                    'transaction_time' => $row['Transaction time'] ?? '',
+                                ]
+                            );
+                        }catch (\Exception $exception){
+                            error_log('cannot add record ' . json_encode($data). ": ". $exception->getMessage());
+                        }
                     }
+
                 }
                 fclose($handle);
             }
         }
+        return $response->withStatus(302)->withHeader('Location', '/');
     }
 
     public function get(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface

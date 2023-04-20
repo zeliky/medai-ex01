@@ -28,11 +28,12 @@ $app->addErrorMiddleware(true, true, true);
 $app->get('/', HomeController::class . ':index');
 $app->get('/medai/{id}', TemporalMedaiController::class . ':get');
 $app->get('/medai', TemporalMedaiController::class . ':search');
+$app->post('/upload', TemporalMedaiController::class . ':import');
 $app->post('/medai', TemporalMedaiController::class . ':add');
 $app->put('/medai', TemporalMedaiController::class . ':update');
 $app->delete('/medai', TemporalMedaiController::class . ':delete');
 $app->get('/autocomplete/clients', AutoCompleteController::class . ':clients');
-$app->get('/autocomplete/loinc', AutoCompleteController::class . ':loinc');
+$app->get('/autocomplete/loincs', AutoCompleteController::class . ':loinc');
 
 
 

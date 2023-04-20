@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use App\Models\TemporalMedai;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Message\ResponseInterface as Response;
 use Slim\Views\PhpRenderer;
@@ -16,9 +17,15 @@ class HomeController
 
     public function index(Request $request, Response $response, array $args)
     {
-        $message = 'Hello, !';
+
+        $params = $request->getQueryParams();
+        $page= $params['page'] ?? 0;
+        $pageSize= $params['limit'] ?? 100;
+        $results = TemporalMedai::getRecords($params, $page, $pageSize);
         $viewData = [
-            'message' => $message
+            'params' => $params,
+            'results' => $results['data'],
+            'qry' => $results['qry'],
         ];
         return $this->view->render($response, 'index.phtml', $viewData);
     }

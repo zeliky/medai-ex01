@@ -2,26 +2,76 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Search and Sort Table</title>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"  crossorigin="anonymous"></script>
-    <link href="https://cdn.datatables.net/v/bs5/jq-3.6.0/dt-1.13.4/datatables.min.css" rel="stylesheet"/>
-    <script src="https://cdn.datatables.net/v/bs5/jq-3.6.0/dt-1.13.4/datatables.min.js"></script>
+    <title>MedAI - temporal dataset</title>
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"
+            crossorigin="anonymous"></script>
+    <!-- jQuery -->
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/gh/xcash/bootstrap-autocomplete@v2.3.7/dist/latest/bootstrap-autocomplete.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.js"></script>
 
 
 </head>
 
 <script>
-    $( document ).ready(function() {
-        $('.basicAutoSelect').autoComplete();
-        $('#results-table').DataTable({
-            processing: true,
-            serverSide: true,
-            ajax: '/medai?'+ $('#search-form').serialize(),
+
+    $(document).ready(function () {
+        // Initialize the autocomplete widget
+        $('#reset').click((e)=> {window.location.href='/';});
+
+        $('#addBtn').click(function() {
+            $('#recordModal').modal('show');
         });
+
+        $('.editBtn').click(function() {
+            var id =$(this).data('id')
+            $.ajax({
+                url: "/medai/" + id ,
+                success: function (data) {
+                    $('#recordModal').modal('show');
+                    $('#firstName').val(data[''])
+                }
+            });
+
+        });
+
+        $('.deleteBtn').click(function() {
+            var id =$(this).data('id')
+
+            $('#confirmModal').modal('show');
+        });
+
+
+        $('.close').click(function() {
+            $('#recordModal').modal('hide');
+            $('#confirmModal').modal('hide');
+        });
+
+        ['client', 'loinc'].forEach((input) => {
+            $("#" + input).autocomplete({
+                source: function (request, response) {
+                    $.ajax({
+                        url: "/autocomplete/" + input + "s",
+                        data: {q: request.term},
+                        success: function (data) {
+                            response(data);
+                        }
+                    });
+                },
+                select: function (event, ui) {
+                    // Set the input value to the selected label
+                    $(this).val(ui.item.label);
+                    $("#" + input + "_id").val(ui.item.value);
+                    // Prevent the default behavior of the autocomplete widget
+                    event.preventDefault();
+                }
+            });
+        })
     });
 
 </script>
@@ -30,30 +80,57 @@
 $now = new \DateTime();
 $startTime = clone($now);
 $startTime->sub(new \DateInterval('P7D'));
+
 ?>
-<div class="container mt-3 border rounded mt-2 p-3">
+<div class="container mt-3 border rounded bg-light bg-gradient mt-2 p-3">
+    <form id="upload-form" action="/upload" method="POST" enctype="multipart/form-data">
+        <div class="row">
+            <h5> Upload File:</h5>
+            <div class="col-md-5">
+
+                <input type="file" name="filename" class="form-control" accept="text/csv">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-secondary">Upload</button>
+
+            </div>
+        </div>
+
+    </form>
+</div>
+
+<div class="container mt-3 border rounded bg-light bg-gradient mt-2 p-3">
+
     <form id="search-form">
+        <h5> Search:</h5>
         <div class="row mb-3">
             <div class="col-md-2">
                 <label for="pov_date" class="form-label">Point of View:</label>
-                <input type="date" name="pov_date" value="<?=$now->format('Y-m-d');?>" class="form-control">
+                <input type="date" name="pov_date" value="<?= $params['pov_date'] ?? $now->format('Y-m-d'); ?>"
+                       class="form-control">
 
             </div>
             <div class="col-md-2">
                 <label for="pov_hour" class="form-label">&nbsp;</label>
-                <input type="time" name="pov_hour" value="<?=$now->format('H:i');?>"  class="form-control">
+                <input type="time" name="pov_hour" value="<?= $params['pov_hour'] ?? $now->format('H:i'); ?>"
+                       class="form-control">
             </div>
 
             <div class="col-md-4">
                 <label for="client" class="form-label">Client:</label>
-                <select id="client" class="form-control basicAutoSelect" name="client_id" placeholder="type to search..."
-                        data-url="autocomplete/clients" autocomplete="off"></select>
+                <input id="client" class="form-control autocomplete"
+                       placeholder="type to search..." name="client"
+                       value="<?= htmlentities($params['client']) ?? ''; ?>"/>
+                <input type="hidden" id="client_id" name="client_id"
+                       value="<?= htmlentities($params['client_id']) ?? ''; ?>"/>
 
             </div>
             <div class="col-md-4">
                 <label for="loinc" class="form-label">LOINC Code:</label>
-                <select id="loinc" class="form-control basicAutoSelect" name="loinc" placeholder="type to search..."
-                        data-url="autocomplete/loinc" autocomplete="off"></select>
+                <input id="loinc" class="form-control autocomplete" name="loinc"
+                       value="<?= htmlentities($params['loinc']) ?? ''; ?>" placeholder="type to search..."/>
+                <input type="hidden" id="loinc_id" name="loinc_id"
+                       value="<?= htmlentities($params['loinc_id']) ?? ''; ?>"/>
 
             </div>
 
@@ -61,47 +138,173 @@ $startTime->sub(new \DateInterval('P7D'));
         <div class="row mb-3">
             <div class="col-md-2">
                 <label for="from_date" class="form-label">From:</label>
-                <input type="date" name="from_date"  value="<?=$startTime->format('Y-m-d');?>"  class="form-control">
+                <input type="date" name="from_date" value="<?= $params['from_date'] ?? $startTime->format('Y-m-d'); ?>"
+                       class="form-control">
             </div>
             <div class="col-md-2">
                 <label for="from_hour" class="form-label">&nbsp;</label>
-                <input type="time" name="from_hour" value="00:00" class="form-control">
+                <input type="time" name="from_hour" value="<?= $params['from_hour'] ?? "00:00"; ?>"
+                       class="form-control">
             </div>
             <div class="col-md-4">
             </div>
             <div class="col-md-2">
                 <label for="to_date" class="form-label">To</label>
-                <input type="date" name="to_date" value="<?=$now->format('Y-m-d');?>" class="form-control">
+                <input type="date" name="to_date" value="<?= $params['to_date'] ?? $now->format('Y-m-d'); ?>"
+                       class="form-control">
             </div>
             <div class="col-md-2">
                 <label for="to_hour" class="form-label">&nbsp;</label>
-                <input type="time" name="to_hour" value="<?=$now->format('H:i');?>"  class="form-control">
+                <input type="time" name="to_hour" value="<?= $params['to_hour'] ?? $now->format('H:i'); ?>"
+                       class="form-control">
             </div>
         </div>
+
         <div class="row mb-3">
 
+            <div class="col mb-12 text-center">
+                <button id="reset" type="reset" class="btn btn-warning">Reset</button>
+                <button type="submit" class="btn btn-secondary">Search</button>
+            </div>
+
         </div>
-        <button type="submit" class="btn btn-primary">Search</button>
     </form>
 </div>
+
+
+
+
+
+
+
+
+
+
 <div class="container mt-3">
     <table class="table table-striped sortable" id="results-table">
         <thead>
         <tr>
-            <th data-defaultsort="asc">First Name</th>
-            <th>Last Name</th>
-            <th>Concept Name</th>
-            <th>LOINC CODE</th>
-            <th>Value</th>
-            <th>Valid Start Time</th>
-            <th>Valid Stop Time</th>
-            <th>Transaction Time</th>
+            <th nowrap="nowrap">First Name</th>
+            <th nowrap="nowrap">Last Name</th>
+            <th nowrap="nowrap">Concept Name</th>
+            <th nowrap="nowrap">LOINC CODE</th>
+            <th nowrap="nowrap">Value</th>
+            <th nowrap="nowrap">Valid Start Time</th>
+            <th nowrap="nowrap">Valid Stop Time</th>
+            <th nowrap="nowrap">Transaction Time</th>
+            <th>
+                <button type="button" id="addBtn" class="btn btn-secondary" data-toggle="modal" data-target="#recordModal">Add </button>
+            </th>
         </tr>
         </thead>
+        <tbody>
+        <?php if (empty($results)) { ?>
+            <tr>
+                <td colspan="8"> No results found</td>
+            </tr>
+        <?php } else {
+            foreach ($results as $row) {
+                ?>
+                <tr>
+                    <td><?= htmlentities($row->first_name); ?></td>
+                    <td><?= htmlentities($row->last_name); ?></td>
+                    <td><?= htmlentities($row->loinc_long_common_name); ?></td>
+                    <td><?= htmlentities($row->loinc_code); ?></td>
+                    <td nowrap="nowrap"><?= htmlentities($row->value . ' ' . $row->unit); ?></td>
 
+                    <td nowrap="nowrap"><?= htmlentities($row->valid_start_time); ?></td>
+                    <td nowrap="nowrap"><?= htmlentities($row->valid_end_time); ?></td>
+                    <td nowrap="nowrap"><?= htmlentities($row->transaction_time); ?></td>
+                    <td nowrap="nowrap">
+                        <a href="#" class="editBtn" data-id="<?=$row->id;?>"><span title='Edit' style='font-size:20px;'>&#x270D;</span></a> &nbsp;
+                        <a href="#" class="deleteBtn" data-id="<?=$row->id;?>"><span title='Delete'  style='font-size:20px;'>&#x1F5F7;</span></a>
+                    </td>
+                </tr>
+            <?php }
+        } ?>
+        </tbody>
 
     </table>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/sortable/0.8.0/js/sortable.min.js" integrity="sha512-O/Ss2s1nbxIy+oKPr8aGm35Pq3ZKX0OTJ70c8R+6SgS6yPp6UwJ6k25NxDdNz+URZCJN+eT8/ACtxc1sFJyBgA==" crossorigin="anonymous
 
 
+<div class="container mt-3 border rounded bg-light bg-gradient mt-2 p-3">
+
+    <pre><?=htmlentities($qry)??'';?></pre>
+</div>
+
+
+
+<!-- Modal -->
+<div class="modal fade" id="recordModal" tabindex="-1" role="dialog" aria-labelledby="editUpdateModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form id="recordForm">
+                <div class="modal-header">
+                    <h4 class="modal-title" id="editUpdateModalLabel">Add/Update</h4>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="firstName">First Name:</label>
+                        <input type="text" class="form-control" id="firstName" name="firstName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="lastName">Last Name:</label>
+                        <input type="text" class="form-control" id="lastName" name="lastName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loincCode">LOINC CODE:</label>
+                        <input type="text" class="form-control" id="loincCode" name="loincCode" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="value">Value:</label>
+                        <input type="number" step="0.01" class="form-control" id="value" name="value" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="validStartTime">Valid Start Time:</label>
+                        <input type="datetime-local" class="form-control" id="validStartTime" name="validStartTime" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="validStopTime">Valid Stop Time:</label>
+                        <input type="datetime-local" class="form-control" id="validStopTime" name="validStopTime" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="transactionTime">Transaction Time:</label>
+                        <input type="datetime-local" class="form-control" id="transactionTime" name="transactionTime" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary close" data-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+<div class="modal fade" id="confirmModal" tabindex="-1" role="dialog" aria-labelledby="confirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmModalLabel">Confirmation</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Do you want really to cancel this transaction?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="close btn btn-secondary" data-dismiss="modal">No, Keep Transaction</button>
+                <button type="button" class=" btn btn-danger">Yes, Cancel Transaction</button>
+            </div>
+        </div>
+    </div>
+</div>

@@ -22,7 +22,7 @@ class Loinc
     }
     public static function findByLoincNumAutoComplete($searchTerm){
         $db = Db::getInstance();
-        $sql = "SELECT loinc_num as `value`,  long_common_name as `text`
+        $sql = "SELECT loinc_num as `value`,  concat(loinc_num,': ',long_common_name) as `label`
                 FROM Loinc
                 WHERE 
                     loinc_num LIKE :term  OR                    

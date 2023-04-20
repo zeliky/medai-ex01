@@ -36,7 +36,7 @@ class Clients
         $nameParts = explode(' ', $searchTerm);
 
         $db = Db::getInstance();
-        $sql = "SELECT id as `value`, concat(first_name, ' ' , last_name) as `text`
+        $sql = "SELECT id as `value`, concat(first_name, ' ' , last_name) as `label`
                 FROM Clients
                 WHERE 
                     (first_name LIKE :part1 AND last_name LIKE :part2)  OR                    
@@ -53,6 +53,7 @@ class Clients
     {
         $db = Db::getInstance();
         $client = self::findByName($firstName, $lastName);
+
         if (is_null($client)) {
             $data = [
                 'first_name' => $firstName,
@@ -60,5 +61,6 @@ class Clients
             ];
             return $db->insert('Clients', $data);
         }
+        return $client->id;
     }
 }

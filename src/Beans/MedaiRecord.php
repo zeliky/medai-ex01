@@ -27,6 +27,7 @@ class MedaiRecord
 
     public function __construct($data)
     {
+
         $this->first_name = $data['first_name'] ?? null;
         $this->last_name = $data['last_name'] ?? null;
         $this->concept_name = $data['concept_name'] ?? null;
@@ -35,7 +36,7 @@ class MedaiRecord
         $this->unit = $data['unit'] ?? null;
         $this->valid_start_time = $data['valid_start_time'] ?? null;
         $this->valid_stop_time = $data['valid_stop_time'] ?? null;
-        $this->transaction_time = $data['transaction_tim'] ?? null;
+        $this->transaction_time = $data['transaction_time'] ?? null;
     }
 
     public function toDbRecord()
@@ -50,32 +51,28 @@ class MedaiRecord
         }
         $loincLongCommonName = $loincRecord->name;
 
+
         if (!empty($this->first_name) && !empty($this->last_name)) {
-            $client = Clients::findByName($this->first_name, $this->last_name);
-            if (!empty($client)) {
-                $clientId = $client->id;
-            } else{
-                $clientId = Clients::add($this->first_name, $this->last_name);
-            }
+            $clientId = Clients::add($this->first_name, $this->last_name);
         }
 
         $transactionTime = new \DateTime();
         if (!empty($this->transaction_time)) {
-            $transactionTime = \DateTime::createFromFormat('Y-m-d H:i', $this->transaction_time);
+            $transactionTime = \DateTime::createFromFormat('d/m/Y H:i', $this->transaction_time);
         }
         $transactionTime->setTime($transactionTime->format('H'), $transactionTime->format('i'), 0);
 
         $validStarTime = new \DateTime();
         if (!empty($this->valid_start_time)) {
-            $validStarTime = \DateTime::createFromFormat('Y-m-d H:i', $this->valid_start_time);
+            $validStarTime = \DateTime::createFromFormat('d/m/Y H:i', $this->valid_start_time);
         }
         $validStarTime->setTime($validStarTime->format('H'), $validStarTime->format('i'), 0);
         $this->valid_stop_time = $this->calcValidEndTime($validStarTime, $loincRecord->time_aspct);
 
 
         return [
-            'transaction_time' => $this->transaction_time ?? $transactionTime->format('Y-m-d H:i:s'),
-            'valid_start_time' => $this->valid_start_time ?? $transactionTime->format('Y-m-d H:i:s'),
+            'transaction_time' => $transactionTime->format('Y-m-d H:i:s'),
+            'valid_start_time' => $validStarTime->format('Y-m-d H:i:s') ,
             'valid_end_time' => $this->valid_stop_time->format('Y-m-d H:i:s'),
             'client_id' => $clientId,
             'loinc_code' => $this->loinc_code,
@@ -149,6 +146,7 @@ class MedaiRecord
             '3Y' => "P3Y", //3 years
             '10Y' => "P10Y" //10 years
         ];
+
         if (!isset($map[$timeAspect])) {
             return null;
         }
