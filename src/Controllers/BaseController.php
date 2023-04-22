@@ -16,6 +16,19 @@ class BaseController
     }
 
 
+    protected function missingInvalidArgument(ResponseInterface $response, $argumentName)
+    {
+        $error = array(
+            "error" => 'missing or invalid argument '.$argumentName
+        );
+
+        $response->getBody()->write(json_encode($error));
+        return $response
+
+            ->withStatus(400);
+    }
+
+
     protected function errorNotFound(ResponseInterface $response)
     {
         $error = array(

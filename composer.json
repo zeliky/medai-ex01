@@ -5,7 +5,17 @@
         "selective/basepath": "^2.1",
         "ext-pdo": "*",
         "ext-json": "*",
-        "slim/php-view": "^3.2"
+        "ext-dom" : "*",
+        "ext-gd" : "*",
+        "ext-mbstring" : "*",
+        "ext-simplexml" : "*",
+        "ext-xml" : "*",
+        "ext-xmlreader" : "*",
+        "ext-xmlwriter" : "*",
+        "ext-zip" : "*",
+        "slim/php-view": "^3.2",
+        "phpoffice/phpspreadsheet": "^1.28" 
+
     },
     "autoload": {
         "psr-4": {

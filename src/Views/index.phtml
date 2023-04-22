@@ -23,9 +23,19 @@
     $(document).ready(function () {
         // Initialize the autocomplete widget
         $('#reset').click((e)=> {window.location.href='/';});
-
         $('#addBtn').click(function() {
+
+            $('#clientId').val('')
+            $('#firstName').val('').attr('readonly', false)
+            $('#lastName').val('').attr('readonly', false)
+            $('#loincCode').val('')
+            $('#value').val('')
+            $('#unit').val('')
+            $('#validStartTime').val('')
+            $('#validStopTime').val('')
+            $('#transactionTime').val('')
             $('#recordModal').modal('show');
+
         });
 
         $('.editBtn').click(function() {
@@ -33,11 +43,73 @@
             $.ajax({
                 url: "/medai/" + id ,
                 success: function (data) {
+                    $('#clientId').val(data['client_id'])
+                    $('#firstName').val(data['first_name']).attr('readonly', true)
+                    $('#lastName').val(data['last_name']).attr('readonly', true)
+                    $('#loincCode').val(data['loinc_code']).attr('readonly', true)
+                    $('#value').val(data['value'])
+                    $('#unit').val(data['unit'])
+                    $('#validStartTime').val(data['valid_start_time']).attr('readonly', true)
+                    $('#validStopTime').val(data['valid_end_time']).attr('readonly', true)
+                    $('#transactionTime').val(nowInputDateString())
+
+
                     $('#recordModal').modal('show');
-                    $('#firstName').val(data[''])
+
                 }
             });
 
+        });
+
+        $('.save-btn').click(function() {
+            var raw_data = rawPostData('recordForm')
+            if (!validate(raw_data))
+                return
+            var type =  (raw_data['client_id']=='') ? 'post' : 'put';
+            $.ajax({
+                type: type,
+                url: "/medai/",
+                data: JSON.stringify(raw_data),
+                success: function (data) {
+                    $('#recordModal').modal('hide');
+                    window.location.reload()
+                },
+                error:function( jqXHR,  textStatus,  errorThrown ){
+                    alert(jqXHR.responseJSON['error'])
+                }
+            })
+        })
+
+        $('.deleteBtn').click(function() {
+            var id = $(this).data('id')
+            $('#delete-id').val(id)
+            $.ajax({
+                url: "/medai/" + id,
+                success: function (data) {
+                    var localDate = new Date(data['valid_start_time']).toLocaleString()
+                    $('#recordInfo').html(`${data['first_name']} ${data['last_name']}'s ${data['loinc_code']}  on ${localDate}`)
+                    $('#confirmModal').modal('show');
+                },
+                error:function( jqXHR,  textStatus,  errorThrown ){
+                    alert(jqXHR.responseJSON['error'])
+                }
+            })
+        });
+
+
+        $('#delete-submit').click(function() {
+            var id =  $('#delete-id').val();
+            $.ajax({
+                url: "/medai/" +id ,
+                type:'delete',
+                success: function (data) {
+                    $('#confirmModal').modal('hide');
+                    window.location.reload()
+                },
+                error:function( jqXHR,  textStatus,  errorThrown ){
+                    alert(jqXHR.responseJSON['error'])
+                }
+            })
         });
 
         $('.deleteBtn').click(function() {
@@ -73,7 +145,40 @@
             });
         })
     });
+    function nowInputDateString(){
+        d = new Date().toISOString().split('T')
+        return `${d[0]} ${d[1].split('.')[0]}`
+    }
+    function rawPostData(formId) {
+        var data = $('#'+formId).serializeArray()
+        var rawData = Object.fromEntries(data.map(x => [x.name, x.value]));
+        rawData.valid_start_time = rawData.valid_start_time.replace('T', ' ');
+        rawData.valid_stop_time = rawData.valid_stop_time.replace('T', ' ');
+        rawData.transaction_time = rawData.transaction_time.replace('T', ' ');
+        return rawData
+    }
 
+    function validate(rawData) {
+        var errors = ''
+        if (rawData['first_name'].length===0){
+            errors += ' first name'
+        }
+        if (rawData['last_name'].length===0){
+            errors += ' last name'
+        }
+        if (rawData['loinc_code'].length===0){
+            errors +=' loinc_code'
+        }
+        if (rawData['value'].length===0){
+            errors +=' value'
+        }
+        if (errors.length >0){
+            alert('invalid values in: ' +errors)
+            return false
+        }
+        return true
+
+    }
 </script>
 <body>
 <?php
@@ -88,7 +193,7 @@ $startTime->sub(new \DateInterval('P7D'));
             <h5> Upload File:</h5>
             <div class="col-md-5">
 
-                <input type="file" name="filename" class="form-control" accept="text/csv">
+                <input type="file" name="filename" class="form-control" accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel">
             </div>
             <div class="col-md-2">
                 <button type="submit" class="btn btn-secondary">Upload</button>
@@ -106,13 +211,13 @@ $startTime->sub(new \DateInterval('P7D'));
         <div class="row mb-3">
             <div class="col-md-2">
                 <label for="pov_date" class="form-label">Point of View:</label>
-                <input type="date" name="pov_date" value="<?= $params['pov_date'] ?? $now->format('Y-m-d'); ?>"
+                <input type="date" name="pov_date" value="<?= htmlentities($params['pov_date'] ?? null); ?>"
                        class="form-control">
 
             </div>
             <div class="col-md-2">
                 <label for="pov_hour" class="form-label">&nbsp;</label>
-                <input type="time" name="pov_hour" value="<?= $params['pov_hour'] ?? $now->format('H:i'); ?>"
+                <input type="time" name="pov_hour" value="<?= htmlentities($params['pov_hour'] ?? '23:59'); ?>"
                        class="form-control">
             </div>
 
@@ -120,17 +225,17 @@ $startTime->sub(new \DateInterval('P7D'));
                 <label for="client" class="form-label">Client:</label>
                 <input id="client" class="form-control autocomplete"
                        placeholder="type to search..." name="client"
-                       value="<?= htmlentities($params['client']) ?? ''; ?>"/>
-                <input type="hidden" id="client_id" name="client_id"
-                       value="<?= htmlentities($params['client_id']) ?? ''; ?>"/>
+                       value="<?= htmlentities($params['client']?? '') ; ?>"/>
+                <input type="hidden" id="client_id"  name="client_id"
+                       value="<?= htmlentities($params['client_id']?? '') ; ?>"/>
 
             </div>
             <div class="col-md-4">
                 <label for="loinc" class="form-label">LOINC Code:</label>
-                <input id="loinc" class="form-control autocomplete" name="loinc"
-                       value="<?= htmlentities($params['loinc']) ?? ''; ?>" placeholder="type to search..."/>
+                <input id="loinc" class=" form-control autocomplete" name="loinc"
+                       value="<?= htmlentities($params['loinc'] ?? ''); ?>" placeholder="type to search..."/>
                 <input type="hidden" id="loinc_id" name="loinc_id"
-                       value="<?= htmlentities($params['loinc_id']) ?? ''; ?>"/>
+                       value="<?= htmlentities($params['loinc_id']?? '') ; ?>"/>
 
             </div>
 
@@ -138,24 +243,24 @@ $startTime->sub(new \DateInterval('P7D'));
         <div class="row mb-3">
             <div class="col-md-2">
                 <label for="from_date" class="form-label">From:</label>
-                <input type="date" name="from_date" value="<?= $params['from_date'] ?? $startTime->format('Y-m-d'); ?>"
+                <input type="date" name="from_date" value="<?= htmlentities($params['from_date'] ?? null); ?>"
                        class="form-control">
             </div>
             <div class="col-md-2">
                 <label for="from_hour" class="form-label">&nbsp;</label>
-                <input type="time" name="from_hour" value="<?= $params['from_hour'] ?? "00:00"; ?>"
+                <input type="time" name="from_hour" value="<?= htmlentities($params['from_hour'] ?? '00:00'); ?>"
                        class="form-control">
             </div>
             <div class="col-md-4">
             </div>
             <div class="col-md-2">
                 <label for="to_date" class="form-label">To</label>
-                <input type="date" name="to_date" value="<?= $params['to_date'] ?? $now->format('Y-m-d'); ?>"
+                <input type="date" name="to_date" value="<?=htmlentities( $params['to_date'] ?? null); ?>"
                        class="form-control">
             </div>
             <div class="col-md-2">
                 <label for="to_hour" class="form-label">&nbsp;</label>
-                <input type="time" name="to_hour" value="<?= $params['to_hour'] ?? $now->format('H:i'); ?>"
+                <input type="time" name="to_hour" value="<?= htmlentities($params['to_hour'] ?? '23:59'); ?>"
                        class="form-control">
             </div>
         </div>
@@ -184,6 +289,7 @@ $startTime->sub(new \DateInterval('P7D'));
     <table class="table table-striped sortable" id="results-table">
         <thead>
         <tr>
+            <th nowrap="nowrap">ID</th>
             <th nowrap="nowrap">First Name</th>
             <th nowrap="nowrap">Last Name</th>
             <th nowrap="nowrap">Concept Name</th>
@@ -200,24 +306,32 @@ $startTime->sub(new \DateInterval('P7D'));
         <tbody>
         <?php if (empty($results)) { ?>
             <tr>
-                <td colspan="8"> No results found</td>
+                <td colspan="10"> No results found</td>
             </tr>
         <?php } else {
             foreach ($results as $row) {
                 ?>
                 <tr>
+                    <td><?= $row->id; ?></td>
                     <td><?= htmlentities($row->first_name); ?></td>
                     <td><?= htmlentities($row->last_name); ?></td>
                     <td><?= htmlentities($row->loinc_long_common_name); ?></td>
                     <td><?= htmlentities($row->loinc_code); ?></td>
                     <td nowrap="nowrap"><?= htmlentities($row->value . ' ' . $row->unit); ?></td>
 
-                    <td nowrap="nowrap"><?= htmlentities($row->valid_start_time); ?></td>
-                    <td nowrap="nowrap"><?= htmlentities($row->valid_end_time); ?></td>
-                    <td nowrap="nowrap"><?= htmlentities($row->transaction_time); ?></td>
+                    <td nowrap="nowrap"><?= humanTime($row->valid_start_time); ?></td>
+                    <td nowrap="nowrap"><?= humanTime($row->valid_end_time); ?></td>
+                    <td nowrap="nowrap"><?= humanTime($row->transaction_time); ?></td>
                     <td nowrap="nowrap">
-                        <a href="#" class="editBtn" data-id="<?=$row->id;?>"><span title='Edit' style='font-size:20px;'>&#x270D;</span></a> &nbsp;
-                        <a href="#" class="deleteBtn" data-id="<?=$row->id;?>"><span title='Delete'  style='font-size:20px;'>&#x1F5F7;</span></a>
+
+
+                        <?php if ($row->is_deleted ) {
+                            ?>
+                            <span title="this record was deleted on <?=humanTime($row->deleted_at);?>">&#x26A0;</span>
+                        <?php }else { ?>
+                            <a href="#" class="editBtn text-decoration-none text-success" data-id="<?=$row->id;?>"><span title='Edit' style='font-size:20px;'>&#9998;</span></a> &nbsp;
+                            <a href="#" class="deleteBtn text-decoration-none text-danger" data-id="<?=$row->id;?>"><span title='Delete'  style='font-size:20px;'>&#128473;</span></a>
+                        <?php }?>
                     </td>
                 </tr>
             <?php }
@@ -247,38 +361,47 @@ $startTime->sub(new \DateInterval('P7D'));
                     </button>
                 </div>
                 <div class="modal-body">
-                    <div class="form-group">
+                    <input type="hidden" class="form-control" id="clientId" name="client_id">
+
+
+
+                    <div class="form-group mb-3 ">
                         <label for="firstName">First Name:</label>
-                        <input type="text" class="form-control" id="firstName" name="firstName" required>
+                        <input type="text" class="form-control" id="firstName" name="first_name" required>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group mb-3">
                         <label for="lastName">Last Name:</label>
-                        <input type="text" class="form-control" id="lastName" name="lastName" required>
+                        <input type="text" class="form-control" id="lastName" name="last_name" required>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group mb-3">
                         <label for="loincCode">LOINC CODE:</label>
-                        <input type="text" class="form-control" id="loincCode" name="loincCode" required>
+                        <input type="text" class="form-control" id="loincCode" name="loinc_code" required>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group mb-3">
                         <label for="value">Value:</label>
-                        <input type="number" step="0.01" class="form-control" id="value" name="value" required>
+                        <input type="number" step="0.0001" class="form-control" id="value" name="value" required>
                     </div>
-                    <div class="form-group">
+
+                    <div class="form-group mb-3">
+                        <label for="unit">Unit:</label>
+                        <input type="text"  class="form-control" id="unit" name="unit" required>
+                    </div>
+                    <div class="form-group mb-3">
                         <label for="validStartTime">Valid Start Time:</label>
-                        <input type="datetime-local" class="form-control" id="validStartTime" name="validStartTime" required>
+                        <input type="datetime-local" class="form-control" id="validStartTime" name="valid_start_time" required>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group mb-3">
                         <label for="validStopTime">Valid Stop Time:</label>
-                        <input type="datetime-local" class="form-control" id="validStopTime" name="validStopTime" required>
+                        <input type="datetime-local" class="form-control" id="validStopTime" name="valid_stop_time" required>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group mb-3">
                         <label for="transactionTime">Transaction Time:</label>
-                        <input type="datetime-local" class="form-control" id="transactionTime" name="transactionTime" required>
+                        <input type="datetime-local" class="form-control" id="transactionTime" name="transaction_time" required>
                     </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer mb-3">
                     <button type="button" class="btn btn-secondary close" data-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-primary">Save changes</button>
+                    <button type="button"   class="save-btn btn btn-primary">Save changes</button>
                 </div>
             </form>
         </div>
@@ -299,12 +422,26 @@ $startTime->sub(new \DateInterval('P7D'));
                 </button>
             </div>
             <div class="modal-body">
-                <p>Do you want really to cancel this transaction?</p>
+                <p>Do you want really want to cancel this transaction?</p>
+                <em id="recordInfo"></em>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer text-center">
+                <input type="hidden" id="delete-id">
                 <button type="button" class="close btn btn-secondary" data-dismiss="modal">No, Keep Transaction</button>
-                <button type="button" class=" btn btn-danger">Yes, Cancel Transaction</button>
+                <button type="button" id="delete-submit" class="btn btn-danger">Yes, Cancel Transaction</button>
             </div>
         </div>
     </div>
 </div>
+
+<?php
+function humanTime($date){
+    if (empty($date)){
+        return '';
+    }
+    $dateTime = \DateTime::createFromFormat('Y-m-d H:i:s', $date);
+    if (empty($dateTime)) {
+        return '';
+    }
+    return $dateTime->format('d/m/Y H:i');
+}

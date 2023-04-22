@@ -20,8 +20,8 @@ class TemporalMedai
     {
         $params = [];
         $viewTime = new \DateTime();
-        $fromTime = new \DateTime();
-        $fromTime->setTime(0,0);
+        //$fromTime = new \DateTime();
+        //$fromTime->setTime(0,0);
         $toTime = new \DateTime();
         $toTime->setTime(23,59);
 
@@ -34,7 +34,7 @@ class TemporalMedai
         }
 
 
-        //$params['view_time'] = $viewTime->format('Y-m-d H:i:s');
+        $params['view_time'] = $viewTime->format('Y-m-d H:i:s');
         //$params['from_time'] = $fromTime->format('Y-m-d H:i:s');
         //$params['to_time'] = $toTime->format('Y-m-d H:i:s');
 
@@ -72,15 +72,10 @@ class TemporalMedai
 
         }
 
-        # if to time it not set: consider  from=to  - to get exact time match
-        if(!empty( $params['from_time'])) {
-            $params['to_time'] = $params['from_time'];
-        }
-
         if (!empty($searchQry['to_date'])) {
-            $dtime = \DateTime::createFromFormat('Y-m-d', $searchQry['to_date']);
-            if (!empty($dtime)) {
-                $dtime->setTime(23, 59, 59);
+            $toTime = \DateTime::createFromFormat('Y-m-d', $searchQry['to_date']);
+            if (!empty($toTime)) {
+                $toTime->setTime(23, 59, 59);
                 $params['to_time'] = $toTime->format('Y-m-d H:i:s');
             }
         }
@@ -96,6 +91,7 @@ class TemporalMedai
 
 
     public static function getLatestRecord($clientId, $loincCode, $validTime, $viewTime=null){
+
         $db=Db::getInstance();
         if (empty($viewTime)){
             $viewTime = new \DateTime();
@@ -129,13 +125,13 @@ class TemporalMedai
     {
         $params =  self::prepareParams($searchQry);
 
-        $sql = "SELECT c.first_name, c.last_name, t.*
-                from  TemporalMedai as t
-                    inner join Clients as c on t.client_id = c.id
-                
-                WHERE  ";
+        $sql = "SELECT c.first_name, c.last_name, t.* ". PHP_EOL.
+                "FROM  TemporalMedai as t ". PHP_EOL.
+                "INNER JOIN Clients as c ON t.client_id = c.id ". PHP_EOL.
+                "WHERE ". PHP_EOL;
 
-        $whereQry =['is_deleted=0'];
+        $whereQry[]  = '(transaction_time <= :view_time and valid_start_time <= :view_time)';
+        $whereQry[]  = '(is_deleted=0  or deleted_at > :view_time)';
 
         if (isset($params['client_id'])){
             $whereQry[]  = '(client_id = :client_id)';
@@ -145,9 +141,6 @@ class TemporalMedai
             $whereQry[]  = '(loinc_code = :loinc)';
         }
 
-        if (isset($params['view_time'])){
-            $whereQry[]  = '(transaction_time <= :view_time)';
-        }
 
         if (isset($params['from_time'])){
             $whereQry[]  = '(valid_start_time >= :from_time)';
@@ -185,40 +178,47 @@ class TemporalMedai
 
     public static function addRecord(array $data, $returnNewRecord=true): ?array
     {
+        static $i = 0;
         $record = new MedaiRecord($data);
         $values = $record->toDbRecord();
 
-        $currentValues = self::getLatestRecord($values['client_id'],$values['loinc_code'], $values['valid_start_time'] );
+
+        $currentValues = self::getLatestRecord($record->client_id, $record->loinc_code, $record->valid_start_time );
         if (!empty($currentValues)){
             throw new \Exception('same record already exist ');
         }
 
+        //print_r($i++ . ')'.  implode(" | " , $values)  . ' ---> '. ($currentValues!==false). PHP_EOL) ;
 
 
         $db = Db::getInstance();
         $id= $db->insert('TemporalMedai', $values);
+
         if ($returnNewRecord)
             return self::find($id);
         return null;
     }
 
-    public static  function updateRecordByKeys($firstName, $lastName, $loincCode, $validTime, $newValue): array
+    public static  function updateRecordByKeys(MedaiRecord $record): array
     {
-        $client = Clients::findByName($firstName,$lastName);
+        if (!empty($record->client_id)) {
+            $client = Clients::find($record->client_id);
+        }elseif ( !empty($record->first_name) && !empty($record->last_name) ){
+            $client = Clients::findByName($record->first_name, $record->last_name);
+        }
+
         if (empty($client)){
             throw new \Exception( 'Invalid client (first name/ last name)');
         }
-        if ($validTime instanceof  \DateTime){
-            $validTime->setTime($validTime->format('H'),$validTime->format('i'),0);
-            $validTime = $validTime->format('Y-m-d H:i:s');
-        }
 
-        $currentValues = self::getLatestRecord($client->id,$loincCode, $validTime );
+        $currentValues = self::getLatestRecord($client->id, $record->loinc_code, $record->valid_start_time );
         if (empty($currentValues)){
             throw new \Exception('no valid record for requested {client, loinc, time} ');
         }
-
-        return self::updateRecord($currentValues, $newValue);
+        if($currentValues['value'] == $record->value){
+            throw new \Exception('The updated value is same as original value.');
+        }
+        return self::updateRecord($currentValues, $record->value);
     }
 
 
@@ -233,6 +233,8 @@ class TemporalMedai
     {
 
         $transactionTime = new \DateTime();
+
+        self::deleteRecordById($values['id']);
         unset($values['id']);
         $values['value'] = $newTestValue;
         $values['transaction_time'] = $transactionTime->format('Y-m-d H:i:s');
@@ -244,7 +246,7 @@ class TemporalMedai
         return self::find($id);
     }
 
-    public static function deleteRecord($firstName, $lastName, $loincCode, $validTime): bool
+    public static function deleteRecordNaturalKey($firstName, $lastName, $loincCode, $validTime): bool
     {
 
         $client = Clients::findByName($firstName,$lastName);
@@ -261,11 +263,22 @@ class TemporalMedai
         if (empty($latest)){
             throw new \Exception('no valid record for requested {client, loinc, time}');
         }
+        return self::deleteRecordById($latest['id']);
+    }
+
+    /**
+     * @param $id
+     * @return bool
+     */
+    public static function deleteRecordById($id): bool
+    {
         $now = new \DateTime();
         $db = Db::getInstance();
         $upd['is_deleted'] = 1;
         $upd['deleted_at'] = $now->format('Y-m-d H:i:s');
-        $rowCount =  $db->update('TemporalMedai', $upd,'id='.$latest['id']);
-        return ($rowCount>0);
+        $rowCount = $db->update('TemporalMedai', $upd, 'id=' . $id);
+        return ($rowCount > 0);
     }
+
+
 }

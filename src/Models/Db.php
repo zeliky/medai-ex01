@@ -110,12 +110,14 @@ class Db
             $this->connect();
         }
         if (!$this->isConnected()) {
-            error_log(\Zappix\Utilities\Logger::CRITICAL, 'unable to execute query on uninitialized connection');
+            error_log( 'unable to execute query on uninitialized connection');
             return false;
         }
 
         $db = &$this->_connection;
+        error_log($query . ' --- params: '. json_encode($params));
         $stmt = $db->prepare($query, array(PDO::ATTR_CURSOR => PDO::CURSOR_FWDONLY));
+
         $result = $stmt->execute($params);
         if ($stmt->errorCode() != '00000') {
             $errorInfo = $stmt->errorInfo();
@@ -127,7 +129,7 @@ class Db
 
     public function select($query, array $params, $resultType, $callback = array(), $pagination = NULL)
     {
-        if (!empty($pagination) && $pagination instanceof Zappix\Utilities\Zebra_Pagination) {
+        if (!empty($pagination)) {
             $stmt = $this->query($query, $params);
             $pagination->records($stmt->rowCount());
             $query .= " LIMIT " . (($pagination->get_page() - 1) * $pagination->get_per_page()) . ", " . $pagination->get_per_page();
@@ -226,7 +228,7 @@ class Db
             $params[$key] = $value;
         }
         if (empty($sets)) {
-            \Zappix\Utilities\Logger::message(\Zappix\Utilities\Logger::CRITICAL, 'unable to insert empty set to table ' . $table, \Zappix\Utilities\Logger::DB_LOG);
+            error_log('unable to insert empty set to table ' . $table);
         }
 
         $query .= implode(',', $sets);
@@ -281,7 +283,7 @@ class Db
         $params = array();
         $sets = array();
         if (empty($whereStr) && empty($whereParams)) {
-            error_log(\Zappix\Utilities\Logger::CRITICAL, 'DELETE statement with no condition is not allowed');
+            error_log( 'DELETE statement with no condition is not allowed');
         }
 
 
@@ -345,13 +347,7 @@ class Db
         return $result;
     }
 
-    function quote($str)
-    {
-        if (get_magic_quotes_gpc()) {
-            $str = stripslashes($str);
-        }
-        return $this->_connection->quote($str);
-    }
+
 
     function disconnect()
     {

@@ -34,7 +34,6 @@ class Clients
 
     public static function findByNameAutoComplete($searchTerm){
         $nameParts = explode(' ', $searchTerm);
-
         $db = Db::getInstance();
         $sql = "SELECT id as `value`, concat(first_name, ' ' , last_name) as `label`
                 FROM Clients
@@ -44,7 +43,7 @@ class Clients
                 LIMIT 10";
         $params = [
             'part1' => '%'.$nameParts[0].'%' ?? '',
-            'part2' => '%'.$nameParts[1].'%' ?? ''
+            'part2' => '%'.($nameParts[1] ?? '').'%' ?? ''
         ];
 
         return $db->select($sql, $params, Db::QUERY_RESULTS_OBJECT_ROWS);
@@ -54,7 +53,7 @@ class Clients
         $db = Db::getInstance();
         $client = self::findByName($firstName, $lastName);
 
-        if (is_null($client)) {
+        if (empty($client)) {
             $data = [
                 'first_name' => $firstName,
                 'last_name' => $lastName

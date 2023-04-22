@@ -7,6 +7,7 @@ use App\Models\Loinc;
 
 class MedaiRecord
 {
+    public $client_id;
     public $first_name;
     public $last_name;
 
@@ -28,15 +29,30 @@ class MedaiRecord
     public function __construct($data)
     {
 
+        $this->client_id = $data['client_id'] ?? null;
         $this->first_name = $data['first_name'] ?? null;
         $this->last_name = $data['last_name'] ?? null;
         $this->concept_name = $data['concept_name'] ?? null;
         $this->loinc_code = $data['loinc_code'] ?? null;
         $this->value = $data['value'] ?? null;
         $this->unit = $data['unit'] ?? null;
-        $this->valid_start_time = $data['valid_start_time'] ?? null;
-        $this->valid_stop_time = $data['valid_stop_time'] ?? null;
-        $this->transaction_time = $data['transaction_time'] ?? null;
+
+        $sample = $data['valid_start_time']??$data['valid_stop_time']??$data['transaction_time']??null;
+
+        $format = detectFormat($sample);
+
+        $dtime =  \DateTime::createFromFormat($format, $data['valid_start_time'] ?? null) ;
+        if ($dtime)
+            $this->valid_start_time = $dtime;
+
+        $dtime =  \DateTime::createFromFormat($format, $data['valid_stop_time'] ?? null) ;
+        if ($dtime)
+            $this->valid_stop_time = $dtime;
+
+        $dtime =  \DateTime::createFromFormat($format, $data['transaction_time'] ?? null) ;
+        if ($dtime)
+            $this->transaction_time = $dtime;
+
     }
 
     public function toDbRecord()
@@ -44,7 +60,7 @@ class MedaiRecord
         if(empty($this->loinc_code)){
             throw new \Exception('missing loinc_code');
         }
-        $clientId =  null;
+        $this->client_id =  null;
         $loincRecord = Loinc::find($this->loinc_code);
         if(empty($loincRecord)){
             throw new \Exception('invalid loinc_code');
@@ -53,20 +69,18 @@ class MedaiRecord
 
 
         if (!empty($this->first_name) && !empty($this->last_name)) {
-            $clientId = Clients::add($this->first_name, $this->last_name);
+            $this->client_id = Clients::add($this->first_name, $this->last_name);
         }
-
-        $transactionTime = new \DateTime();
-        if (!empty($this->transaction_time)) {
-            $transactionTime = \DateTime::createFromFormat('d/m/Y H:i', $this->transaction_time);
-        }
+        $transactionTime =  (!empty($this->transaction_time) ? $this->transaction_time: new \DateTime() );
         $transactionTime->setTime($transactionTime->format('H'), $transactionTime->format('i'), 0);
 
-        $validStarTime = new \DateTime();
-        if (!empty($this->valid_start_time)) {
-            $validStarTime = \DateTime::createFromFormat('d/m/Y H:i', $this->valid_start_time);
-        }
+        $validStarTime = (!empty($this->transaction_time) ? $this->valid_start_time: new \DateTime() );
         $validStarTime->setTime($validStarTime->format('H'), $validStarTime->format('i'), 0);
+
+
+        $validStarTime = (!empty($this->transaction_time) ? $this->valid_start_time: new \DateTime() );
+        $validStarTime->setTime($validStarTime->format('H'), $validStarTime->format('i'), 0);
+
         $this->valid_stop_time = $this->calcValidEndTime($validStarTime, $loincRecord->time_aspct);
 
 
@@ -74,7 +88,7 @@ class MedaiRecord
             'transaction_time' => $transactionTime->format('Y-m-d H:i:s'),
             'valid_start_time' => $validStarTime->format('Y-m-d H:i:s') ,
             'valid_end_time' => $this->valid_stop_time->format('Y-m-d H:i:s'),
-            'client_id' => $clientId,
+            'client_id' => $this->client_id,
             'loinc_code' => $this->loinc_code,
             'loinc_long_common_name' => $loincLongCommonName,
             'value' => $this->value,
@@ -155,4 +169,18 @@ class MedaiRecord
 
 
     }
+
+
+}
+
+function detectFormat($sample){
+    $supportedFormats = ['Y-m-d H:i:s','Y-m-d H:i', 'd/n/Y H:i'];
+
+    foreach($supportedFormats as $format){
+        if ( \DateTime::createFromFormat($format, $sample)){
+            return $format;
+        }
+    }
+    return null;
+
 }
