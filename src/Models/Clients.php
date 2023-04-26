@@ -26,8 +26,8 @@ class Clients
                 WHERE first_name=:first_name and last_name=:last_name
                 LIMIT 1";
         $params = [
-            'first_name' => $firstName,
-            'last_name' => $lastName
+            'first_name' => self::normalizeName($firstName),
+            'last_name' =>  self::normalizeName($lastName)
         ];
         return $db->select($sql, $params, Db::QUERY_RESULTS_OBJECT_ROW);
     }
@@ -42,8 +42,8 @@ class Clients
                     (first_name LIKE :part2 AND  last_name LIKE :part1) 
                 LIMIT 10";
         $params = [
-            'part1' => '%'.$nameParts[0].'%' ?? '',
-            'part2' => '%'.($nameParts[1] ?? '').'%' ?? ''
+            'part1' => '%'.trim($nameParts[0]).'%' ?? '',
+            'part2' => '%'.trim($nameParts[1] ?? '').'%' ?? ''
         ];
 
         return $db->select($sql, $params, Db::QUERY_RESULTS_OBJECT_ROWS);
@@ -55,11 +55,16 @@ class Clients
 
         if (empty($client)) {
             $data = [
-                'first_name' => $firstName,
-                'last_name' => $lastName
+                'first_name' => self::normalizeName($firstName),
+                'last_name' =>  self::normalizeName($lastName)
             ];
             return $db->insert('Clients', $data);
         }
         return $client->id;
+    }
+
+    public static function normalizeName($name): string
+    {
+        return  ucfirst(strtolower(trim($name)));
     }
 }

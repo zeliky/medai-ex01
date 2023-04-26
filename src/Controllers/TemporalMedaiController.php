@@ -127,6 +127,23 @@ class TemporalMedaiController extends BaseController
         }
     }
 
+    public function retreive(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        try {
+            $now = new \DateTime();
+            $params = $request->getQueryParams();
+            $clientId = $params['client_id'] ?? null;
+            $loincCode = $params['loinc_id'] ?? null;
+            $validTime = ($params['at_date'] ?? $now->format('Y-m-d'))  .' ' . ($params['at_hour'].':59' ?? '23:59:59');
+            $viewTime = ($params['pov_date'] ?? $now->format('Y-m-d'))  .' ' . ($params['pov_hour'].':59' ?? '23:59:59');
+            $records = TemporalMedai::getLatestRecord($clientId, $loincCode, $validTime, $viewTime);
+            return $this->jsonResponse($response, $records);
+
+        } catch (\Exception $e) {
+            return $this->errorResponse($response, $e->getMessage());
+        }
+    }
+
     public function add(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
     {
         try {

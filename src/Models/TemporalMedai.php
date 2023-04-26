@@ -24,6 +24,7 @@ class TemporalMedai
         //$fromTime->setTime(0,0);
         $toTime = new \DateTime();
         $toTime->setTime(23,59);
+        $queryType = $searchQry['query_type'] ?? 'history';
 
         if (!empty($searchQry['client_id'])) {
             $params['client_id'] = intval($searchQry['client_id']);
@@ -54,36 +55,61 @@ class TemporalMedai
             }
         }
 
-        if (!empty($searchQry['from_date'])) {
-            $fromTime = \DateTime::createFromFormat('Y-m-d', $searchQry['from_date']);
+        // ======================================== retrieval ===============================================
 
-            if ($fromTime && !empty($dtime)) {
-                $fromTime->setTime(0, 0, 0);
-                $params['from_time'] = $dtime->format('Y-m-d H:i:s');
+        if ($queryType=='retrieval'){
+            $atTime = new \DateTime();
+            if (!empty($searchQry['at_date'])) {
+                $atTime = \DateTime::createFromFormat('Y-m-d', $searchQry['at_date']);
             }
+            if (empty($searchQry['at_hour'])) {
+                $atTime->setTime(0,0);
+                $params['from_time'] = $atTime->format('Y-m-d H:i:s');
+                $atTime->setTime(23,59);
+                $params['to_time'] = $atTime->format('Y-m-d H:i:s');
 
-        }
-        if (!empty($searchQry['from_hour'])) {
-            $dtime = \DateTime::createFromFormat('H:i', $searchQry['from_hour']);
-            if ($fromTime && !empty($dtime)) {
-                $fromTime->setTime($dtime->format('H'), $dtime->format('i'));
-                $params['from_time'] = $fromTime->format('Y-m-d H:i:s');
-            }
-
-        }
-
-        if (!empty($searchQry['to_date'])) {
-            $toTime = \DateTime::createFromFormat('Y-m-d', $searchQry['to_date']);
-            if (!empty($toTime)) {
-                $toTime->setTime(23, 59, 59);
-                $params['to_time'] = $toTime->format('Y-m-d H:i:s');
+            }else {
+                $dtime = \DateTime::createFromFormat('H:i', $searchQry['at_hour']);
+                if ( !empty($dtime)) {
+                    $atTime->setTime($dtime->format('H'), $dtime->format('i'));
+                    $params['at_time'] = $atTime->format('Y-m-d H:i:s');
+                }
             }
         }
-        if (!empty($searchQry['to_hour'])) {
-            $dtime = \DateTime::createFromFormat('H:i', $searchQry['to_hour']);
-            if (!empty($dtime)) {
-                $toTime->setTime($dtime->format('H'), $dtime->format('i'));
-                $params['to_time'] = $toTime->format('Y-m-d H:i:s');
+
+        // ======================================== history ===============================================
+
+        if ($queryType=='history') {
+            if (!empty($searchQry['from_date'])) {
+                $fromTime = \DateTime::createFromFormat('Y-m-d', $searchQry['from_date']);
+
+                if ($fromTime && !empty($dtime)) {
+                    $fromTime->setTime(0, 0, 0);
+                    $params['from_time'] = $dtime->format('Y-m-d H:i:s');
+                }
+
+            }
+            if (!empty($searchQry['from_hour'])) {
+                $dtime = \DateTime::createFromFormat('H:i', $searchQry['from_hour']);
+                if ($fromTime && !empty($dtime)) {
+                    $fromTime->setTime($dtime->format('H'), $dtime->format('i'));
+                    $params['from_time'] = $fromTime->format('Y-m-d H:i:s');
+                }
+            }
+
+            if (!empty($searchQry['to_date'])) {
+                $toTime = \DateTime::createFromFormat('Y-m-d', $searchQry['to_date']);
+                if (!empty($toTime)) {
+                    $toTime->setTime(23, 59, 59);
+                    $params['to_time'] = $toTime->format('Y-m-d H:i:s');
+                }
+            }
+            if (!empty($searchQry['to_hour'])) {
+                $dtime = \DateTime::createFromFormat('H:i', $searchQry['to_hour']);
+                if (!empty($dtime)) {
+                    $toTime->setTime($dtime->format('H'), $dtime->format('i'));
+                    $params['to_time'] = $toTime->format('Y-m-d H:i:s');
+                }
             }
         }
         return $params;
@@ -124,6 +150,7 @@ class TemporalMedai
     public static function getRecords($searchQry, $page=0, $pageSize = 100): array
     {
         $params =  self::prepareParams($searchQry);
+        $queryType = $searchQry['query_type'] ?? 'history';
 
         $sql = "SELECT c.first_name, c.last_name, t.* ". PHP_EOL.
                 "FROM  TemporalMedai as t ". PHP_EOL.
@@ -141,6 +168,9 @@ class TemporalMedai
             $whereQry[]  = '(loinc_code = :loinc)';
         }
 
+        if (isset($params['at_time'])){
+            $whereQry[]  = '(valid_start_time = :at_time)';
+        }
 
         if (isset($params['from_time'])){
             $whereQry[]  = '(valid_start_time >= :from_time)';
@@ -154,8 +184,13 @@ class TemporalMedai
             $sql .= implode(PHP_EOL.' AND ', $whereQry);
         }
         $offset = $page* $pageSize;
-        $sql .= "\n ORDER BY  valid_start_time ";
-        $sql .= "\n LIMIT $offset,$pageSize ";
+        if ($queryType=='retrieval') {
+            $sql .= "\n ORDER BY  transaction_time desc ";
+            $sql .= "\n LIMIT 1 ";
+        } else {
+            $sql .= "\n ORDER BY  valid_start_time ";
+            $sql .= "\n LIMIT $offset,$pageSize ";
+        }
 
         $db= Db::getInstance();
         $results = $db->select($sql, $params, Db::QUERY_RESULTS_OBJECT_ROWS);
@@ -181,8 +216,6 @@ class TemporalMedai
         static $i = 0;
         $record = new MedaiRecord($data);
         $values = $record->toDbRecord();
-
-
         $currentValues = self::getLatestRecord($record->client_id, $record->loinc_code, $record->valid_start_time );
         if (!empty($currentValues)){
             throw new \Exception('same record already exist ');
@@ -192,6 +225,7 @@ class TemporalMedai
 
 
         $db = Db::getInstance();
+
         $id= $db->insert('TemporalMedai', $values);
 
         if ($returnNewRecord)

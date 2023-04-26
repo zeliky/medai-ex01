@@ -74,11 +74,11 @@ class MedaiRecord
         $transactionTime =  (!empty($this->transaction_time) ? $this->transaction_time: new \DateTime() );
         $transactionTime->setTime($transactionTime->format('H'), $transactionTime->format('i'), 0);
 
-        $validStarTime = (!empty($this->transaction_time) ? $this->valid_start_time: new \DateTime() );
+        $validStarTime = (!empty($this->valid_start_time) ? $this->valid_start_time: new \DateTime() );
         $validStarTime->setTime($validStarTime->format('H'), $validStarTime->format('i'), 0);
 
 
-        $validStarTime = (!empty($this->transaction_time) ? $this->valid_start_time: new \DateTime() );
+        $validStarTime = (!empty($this->valid_start_time) ? $this->valid_start_time: new \DateTime() );
         $validStarTime->setTime($validStarTime->format('H'), $validStarTime->format('i'), 0);
 
         $this->valid_stop_time = $this->calcValidEndTime($validStarTime, $loincRecord->time_aspct);

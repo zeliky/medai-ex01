@@ -22,8 +22,10 @@
 
     $(document).ready(function () {
         // Initialize the autocomplete widget
-        $('#reset').click((e)=> {window.location.href='/';});
-        $('#addBtn').click(function() {
+        $('#reset').click((e) => {
+            window.location.href = '/';
+        });
+        $('#addBtn').click(function () {
 
             $('#clientId').val('')
             $('#firstName').val('').attr('readonly', false)
@@ -38,10 +40,10 @@
 
         });
 
-        $('.editBtn').click(function() {
-            var id =$(this).data('id')
+        $('.editBtn').click(function () {
+            var id = $(this).data('id')
             $.ajax({
-                url: "/medai/" + id ,
+                url: "/medai/" + id,
                 success: function (data) {
                     $('#clientId').val(data['client_id'])
                     $('#firstName').val(data['first_name']).attr('readonly', true)
@@ -61,11 +63,11 @@
 
         });
 
-        $('.save-btn').click(function() {
+        $('.save-btn').click(function () {
             var raw_data = rawPostData('recordForm')
             if (!validate(raw_data))
                 return
-            var type =  (raw_data['client_id']=='') ? 'post' : 'put';
+            var type = (raw_data['client_id'] == '') ? 'post' : 'put';
             $.ajax({
                 type: type,
                 url: "/medai/",
@@ -74,13 +76,13 @@
                     $('#recordModal').modal('hide');
                     window.location.reload()
                 },
-                error:function( jqXHR,  textStatus,  errorThrown ){
+                error: function (jqXHR, textStatus, errorThrown) {
                     alert(jqXHR.responseJSON['error'])
                 }
             })
         })
 
-        $('.deleteBtn').click(function() {
+        $('.deleteBtn').click(function () {
             var id = $(this).data('id')
             $('#delete-id').val(id)
             $.ajax({
@@ -90,36 +92,36 @@
                     $('#recordInfo').html(`${data['first_name']} ${data['last_name']}'s ${data['loinc_code']}  on ${localDate}`)
                     $('#confirmModal').modal('show');
                 },
-                error:function( jqXHR,  textStatus,  errorThrown ){
+                error: function (jqXHR, textStatus, errorThrown) {
                     alert(jqXHR.responseJSON['error'])
                 }
             })
         });
 
 
-        $('#delete-submit').click(function() {
-            var id =  $('#delete-id').val();
+        $('#delete-submit').click(function () {
+            var id = $('#delete-id').val();
             $.ajax({
-                url: "/medai/" +id ,
-                type:'delete',
+                url: "/medai/" + id,
+                type: 'delete',
                 success: function (data) {
                     $('#confirmModal').modal('hide');
                     window.location.reload()
                 },
-                error:function( jqXHR,  textStatus,  errorThrown ){
+                error: function (jqXHR, textStatus, errorThrown) {
                     alert(jqXHR.responseJSON['error'])
                 }
             })
         });
 
-        $('.deleteBtn').click(function() {
-            var id =$(this).data('id')
+        $('.deleteBtn').click(function () {
+            var id = $(this).data('id')
 
             $('#confirmModal').modal('show');
         });
 
 
-        $('.close').click(function() {
+        $('.close').click(function () {
             $('#recordModal').modal('hide');
             $('#confirmModal').modal('hide');
         });
@@ -143,14 +145,28 @@
                     event.preventDefault();
                 }
             });
+        });
+
+
+        queryTypeModifiers()
+        $('#query_type').change(function (){
+            return queryTypeModifiers()
         })
+
+
     });
-    function nowInputDateString(){
+    function queryTypeModifiers(){
+        var selectedType = $('#query_type').val()
+        $('.section-modifier').hide()
+        $('.'+selectedType + '-section').show()
+    }
+    function nowInputDateString() {
         d = new Date().toISOString().split('T')
         return `${d[0]} ${d[1].split('.')[0]}`
     }
+
     function rawPostData(formId) {
-        var data = $('#'+formId).serializeArray()
+        var data = $('#' + formId).serializeArray()
         var rawData = Object.fromEntries(data.map(x => [x.name, x.value]));
         rawData.valid_start_time = rawData.valid_start_time.replace('T', ' ');
         rawData.valid_stop_time = rawData.valid_stop_time.replace('T', ' ');
@@ -160,20 +176,20 @@
 
     function validate(rawData) {
         var errors = ''
-        if (rawData['first_name'].length===0){
+        if (rawData['first_name'].length === 0) {
             errors += ' first name'
         }
-        if (rawData['last_name'].length===0){
+        if (rawData['last_name'].length === 0) {
             errors += ' last name'
         }
-        if (rawData['loinc_code'].length===0){
-            errors +=' loinc_code'
+        if (rawData['loinc_code'].length === 0) {
+            errors += ' loinc_code'
         }
-        if (rawData['value'].length===0){
-            errors +=' value'
+        if (rawData['value'].length === 0) {
+            errors += ' value'
         }
-        if (errors.length >0){
-            alert('invalid values in: ' +errors)
+        if (errors.length > 0) {
+            alert('invalid values in: ' + errors)
             return false
         }
         return true
@@ -185,7 +201,7 @@
 $now = new \DateTime();
 $startTime = clone($now);
 $startTime->sub(new \DateInterval('P7D'));
-
+$queryType = $params['query_type']??'history';
 ?>
 <div class="container mt-3 border rounded bg-light bg-gradient mt-2 p-3">
     <form id="upload-form" action="/upload" method="POST" enctype="multipart/form-data">
@@ -193,7 +209,8 @@ $startTime->sub(new \DateInterval('P7D'));
             <h5> Upload File:</h5>
             <div class="col-md-5">
 
-                <input type="file" name="filename" class="form-control" accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel">
+                <input type="file" name="filename" class="form-control"
+                       accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel">
             </div>
             <div class="col-md-2">
                 <button type="submit" class="btn btn-secondary">Upload</button>
@@ -225,9 +242,9 @@ $startTime->sub(new \DateInterval('P7D'));
                 <label for="client" class="form-label">Client:</label>
                 <input id="client" class="form-control autocomplete"
                        placeholder="type to search..." name="client"
-                       value="<?= htmlentities($params['client']?? '') ; ?>"/>
-                <input type="hidden" id="client_id"  name="client_id"
-                       value="<?= htmlentities($params['client_id']?? '') ; ?>"/>
+                       value="<?= htmlentities($params['client'] ?? ''); ?>"/>
+                <input type="hidden" id="client_id" name="client_id"
+                       value="<?= htmlentities($params['client_id'] ?? ''); ?>"/>
 
             </div>
             <div class="col-md-4">
@@ -235,54 +252,67 @@ $startTime->sub(new \DateInterval('P7D'));
                 <input id="loinc" class=" form-control autocomplete" name="loinc"
                        value="<?= htmlentities($params['loinc'] ?? ''); ?>" placeholder="type to search..."/>
                 <input type="hidden" id="loinc_id" name="loinc_id"
-                       value="<?= htmlentities($params['loinc_id']?? '') ; ?>"/>
+                       value="<?= htmlentities($params['loinc_id'] ?? ''); ?>"/>
 
             </div>
 
         </div>
         <div class="row mb-3">
-            <div class="col-md-2">
+            <div class="col-md-4">
+                <label for="from_date" class="form-label">Query Type:</label>
+                <select class="form-select" aria-label="Default select example" name="query_type" id="query_type">
+                    <option value="retrieval" <?= ($queryType == 'retrieval' ? 'selected=selected' :'');?>>Retrieval</option>
+                    <option value="history" <?= ($queryType == 'history' ? 'selected=selected' :'');?>>History</option>
+                </select>
+            </div>
+
+            <div class="history-section section-modifier col-md-2">
                 <label for="from_date" class="form-label">From:</label>
                 <input type="date" name="from_date" value="<?= htmlentities($params['from_date'] ?? null); ?>"
                        class="form-control">
             </div>
-            <div class="col-md-2">
+            <div class="history-section section-modifier  col-md-2">
                 <label for="from_hour" class="form-label">&nbsp;</label>
                 <input type="time" name="from_hour" value="<?= htmlentities($params['from_hour'] ?? '00:00'); ?>"
                        class="form-control">
             </div>
-            <div class="col-md-4">
-            </div>
-            <div class="col-md-2">
+
+            <div class="history-section section-modifier col-md-2">
                 <label for="to_date" class="form-label">To</label>
-                <input type="date" name="to_date" value="<?=htmlentities( $params['to_date'] ?? null); ?>"
+                <input type="date" name="to_date" value="<?= htmlentities($params['to_date'] ?? null); ?>"
                        class="form-control">
             </div>
-            <div class="col-md-2">
+            <div class="history-section section-modifier  col-md-2">
                 <label for="to_hour" class="form-label">&nbsp;</label>
                 <input type="time" name="to_hour" value="<?= htmlentities($params['to_hour'] ?? '23:59'); ?>"
                        class="form-control">
             </div>
-        </div>
 
-        <div class="row mb-3">
-
-            <div class="col mb-12 text-center">
-                <button id="reset" type="reset" class="btn btn-warning">Reset</button>
-                <button type="submit" class="btn btn-secondary">Search</button>
+            <div class="retrieval-section section-modifier col-md-2">
+                <label for="at_date " class="form-label">At</label>
+                <input type="date" name="at_date" value="<?= htmlentities($params['at_date'] ?? null); ?>"
+                       class="form-control"/>
+            </div>
+            <div class="retrieval-section  section-modifier col-md-2">
+                <label for="at_hour" class="form-label">&nbsp;</label>
+                <input type="time" name="at_hour" value="<?= htmlentities($params['at_hour'] ?? null); ?>"
+                       class="form-control"/>
             </div>
 
+
         </div>
-    </form>
+
+
+<div class="row mb-3">
+
+    <div class="col mb-12 text-center">
+        <button id="reset" type="reset" class="btn btn-warning">Reset</button>
+        <button type="submit" class="btn btn-secondary">Search</button>
+    </div>
+
 </div>
-
-
-
-
-
-
-
-
+</form>
+</div>
 
 
 <div class="container mt-3">
@@ -299,7 +329,9 @@ $startTime->sub(new \DateInterval('P7D'));
             <th nowrap="nowrap">Valid Stop Time</th>
             <th nowrap="nowrap">Transaction Time</th>
             <th>
-                <button type="button" id="addBtn" class="btn btn-secondary" data-toggle="modal" data-target="#recordModal">Add </button>
+                <button type="button" id="addBtn" class="btn btn-secondary" data-toggle="modal"
+                        data-target="#recordModal">Add
+                </button>
             </th>
         </tr>
         </thead>
@@ -325,13 +357,16 @@ $startTime->sub(new \DateInterval('P7D'));
                     <td nowrap="nowrap">
 
 
-                        <?php if ($row->is_deleted ) {
+                        <?php if ($row->is_deleted) {
                             ?>
-                            <span title="this record was deleted on <?=humanTime($row->deleted_at);?>">&#x26A0;</span>
-                        <?php }else { ?>
-                            <a href="#" class="editBtn text-decoration-none text-success" data-id="<?=$row->id;?>"><span title='Edit' style='font-size:20px;'>&#9998;</span></a> &nbsp;
-                            <a href="#" class="deleteBtn text-decoration-none text-danger" data-id="<?=$row->id;?>"><span title='Delete'  style='font-size:20px;'>&#128473;</span></a>
-                        <?php }?>
+                            <span title="this record was deleted on <?= humanTime($row->deleted_at); ?>">&#x26A0;</span>
+                        <?php } else { ?>
+                            <a href="#" class="editBtn text-decoration-none text-success"
+                               data-id="<?= $row->id; ?>"><span title='Edit'
+                                                                style='font-size:20px;'>&#9998;</span></a> &nbsp;
+                            <a href="#" class="deleteBtn text-decoration-none text-danger"
+                               data-id="<?= $row->id; ?>"><span title='Delete' style='font-size:20px;'>&#128473;</span></a>
+                        <?php } ?>
                     </td>
                 </tr>
             <?php }
@@ -344,9 +379,8 @@ $startTime->sub(new \DateInterval('P7D'));
 
 <div class="container mt-3 border rounded bg-light bg-gradient mt-2 p-3">
 
-    <pre><?=htmlentities($qry)??'';?></pre>
+    <pre><?= htmlentities($qry) ?? ''; ?></pre>
 </div>
-
 
 
 <!-- Modal -->
@@ -362,7 +396,6 @@ $startTime->sub(new \DateInterval('P7D'));
                 </div>
                 <div class="modal-body">
                     <input type="hidden" class="form-control" id="clientId" name="client_id">
-
 
 
                     <div class="form-group mb-3 ">
@@ -384,24 +417,27 @@ $startTime->sub(new \DateInterval('P7D'));
 
                     <div class="form-group mb-3">
                         <label for="unit">Unit:</label>
-                        <input type="text"  class="form-control" id="unit" name="unit" required>
+                        <input type="text" class="form-control" id="unit" name="unit" required>
                     </div>
                     <div class="form-group mb-3">
                         <label for="validStartTime">Valid Start Time:</label>
-                        <input type="datetime-local" class="form-control" id="validStartTime" name="valid_start_time" required>
+                        <input type="datetime-local" class="form-control" id="validStartTime" name="valid_start_time"
+                               required>
                     </div>
                     <div class="form-group mb-3">
                         <label for="validStopTime">Valid Stop Time:</label>
-                        <input type="datetime-local" class="form-control" id="validStopTime" name="valid_stop_time" required>
+                        <input type="datetime-local" class="form-control" id="validStopTime" name="valid_stop_time"
+                               required>
                     </div>
                     <div class="form-group mb-3">
                         <label for="transactionTime">Transaction Time:</label>
-                        <input type="datetime-local" class="form-control" id="transactionTime" name="transaction_time" required>
+                        <input type="datetime-local" class="form-control" id="transactionTime" name="transaction_time"
+                               required>
                     </div>
                 </div>
                 <div class="modal-footer mb-3">
                     <button type="button" class="btn btn-secondary close" data-dismiss="modal">Close</button>
-                    <button type="button"   class="save-btn btn btn-primary">Save changes</button>
+                    <button type="button" class="save-btn btn btn-primary">Save changes</button>
                 </div>
             </form>
         </div>
@@ -409,10 +445,8 @@ $startTime->sub(new \DateInterval('P7D'));
 </div>
 
 
-
-
-
-<div class="modal fade" id="confirmModal" tabindex="-1" role="dialog" aria-labelledby="confirmModalLabel" aria-hidden="true">
+<div class="modal fade" id="confirmModal" tabindex="-1" role="dialog" aria-labelledby="confirmModalLabel"
+     aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
@@ -435,8 +469,9 @@ $startTime->sub(new \DateInterval('P7D'));
 </div>
 
 <?php
-function humanTime($date){
-    if (empty($date)){
+function humanTime($date)
+{
+    if (empty($date)) {
         return '';
     }
     $dateTime = \DateTime::createFromFormat('Y-m-d H:i:s', $date);
