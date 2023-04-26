@@ -14,199 +14,28 @@
 
     <script src="https://code.jquery.com/jquery-3.6.0.js"></script>
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.js"></script>
-
+    <script src="/js/medai.js"></script>
 
 </head>
 
-<script>
-
-    $(document).ready(function () {
-        // Initialize the autocomplete widget
-        $('#reset').click((e) => {
-            window.location.href = '/';
-        });
-        $('#addBtn').click(function () {
-
-            $('#clientId').val('')
-            $('#firstName').val('').attr('readonly', false)
-            $('#lastName').val('').attr('readonly', false)
-            $('#loincCode').val('')
-            $('#value').val('')
-            $('#unit').val('')
-            $('#validStartTime').val('')
-            $('#validStopTime').val('')
-            $('#transactionTime').val('')
-            $('#recordModal').modal('show');
-
-        });
-
-        $('.editBtn').click(function () {
-            var id = $(this).data('id')
-            $.ajax({
-                url: "/medai/" + id,
-                success: function (data) {
-                    $('#clientId').val(data['client_id'])
-                    $('#firstName').val(data['first_name']).attr('readonly', true)
-                    $('#lastName').val(data['last_name']).attr('readonly', true)
-                    $('#loincCode').val(data['loinc_code']).attr('readonly', true)
-                    $('#value').val(data['value'])
-                    $('#unit').val(data['unit'])
-                    $('#validStartTime').val(data['valid_start_time']).attr('readonly', true)
-                    $('#validStopTime').val(data['valid_end_time']).attr('readonly', true)
-                    $('#transactionTime').val(nowInputDateString())
-
-
-                    $('#recordModal').modal('show');
-
-                }
-            });
-
-        });
-
-        $('.save-btn').click(function () {
-            var raw_data = rawPostData('recordForm')
-            if (!validate(raw_data))
-                return
-            var type = (raw_data['client_id'] == '') ? 'post' : 'put';
-            $.ajax({
-                type: type,
-                url: "/medai/",
-                data: JSON.stringify(raw_data),
-                success: function (data) {
-                    $('#recordModal').modal('hide');
-                    window.location.reload()
-                },
-                error: function (jqXHR, textStatus, errorThrown) {
-                    alert(jqXHR.responseJSON['error'])
-                }
-            })
-        })
-
-        $('.deleteBtn').click(function () {
-            var id = $(this).data('id')
-            $('#delete-id').val(id)
-            $.ajax({
-                url: "/medai/" + id,
-                success: function (data) {
-                    var localDate = new Date(data['valid_start_time']).toLocaleString()
-                    $('#recordInfo').html(`${data['first_name']} ${data['last_name']}'s ${data['loinc_code']}  on ${localDate}`)
-                    $('#confirmModal').modal('show');
-                },
-                error: function (jqXHR, textStatus, errorThrown) {
-                    alert(jqXHR.responseJSON['error'])
-                }
-            })
-        });
-
-
-        $('#delete-submit').click(function () {
-            var id = $('#delete-id').val();
-            $.ajax({
-                url: "/medai/" + id,
-                type: 'delete',
-                success: function (data) {
-                    $('#confirmModal').modal('hide');
-                    window.location.reload()
-                },
-                error: function (jqXHR, textStatus, errorThrown) {
-                    alert(jqXHR.responseJSON['error'])
-                }
-            })
-        });
-
-        $('.deleteBtn').click(function () {
-            var id = $(this).data('id')
-
-            $('#confirmModal').modal('show');
-        });
-
-
-        $('.close').click(function () {
-            $('#recordModal').modal('hide');
-            $('#confirmModal').modal('hide');
-        });
-
-        ['client', 'loinc'].forEach((input) => {
-            $("#" + input).autocomplete({
-                source: function (request, response) {
-                    $.ajax({
-                        url: "/autocomplete/" + input + "s",
-                        data: {q: request.term},
-                        success: function (data) {
-                            response(data);
-                        }
-                    });
-                },
-                select: function (event, ui) {
-                    // Set the input value to the selected label
-                    $(this).val(ui.item.label);
-                    $("#" + input + "_id").val(ui.item.value);
-                    // Prevent the default behavior of the autocomplete widget
-                    event.preventDefault();
-                }
-            });
-        });
-
-
-        queryTypeModifiers()
-        $('#query_type').change(function (){
-            return queryTypeModifiers()
-        })
-
-
-    });
-    function queryTypeModifiers(){
-        var selectedType = $('#query_type').val()
-        $('.section-modifier').hide()
-        $('.'+selectedType + '-section').show()
-    }
-    function nowInputDateString() {
-        d = new Date().toISOString().split('T')
-        return `${d[0]} ${d[1].split('.')[0]}`
-    }
-
-    function rawPostData(formId) {
-        var data = $('#' + formId).serializeArray()
-        var rawData = Object.fromEntries(data.map(x => [x.name, x.value]));
-        rawData.valid_start_time = rawData.valid_start_time.replace('T', ' ');
-        rawData.valid_stop_time = rawData.valid_stop_time.replace('T', ' ');
-        rawData.transaction_time = rawData.transaction_time.replace('T', ' ');
-        return rawData
-    }
-
-    function validate(rawData) {
-        var errors = ''
-        if (rawData['first_name'].length === 0) {
-            errors += ' first name'
-        }
-        if (rawData['last_name'].length === 0) {
-            errors += ' last name'
-        }
-        if (rawData['loinc_code'].length === 0) {
-            errors += ' loinc_code'
-        }
-        if (rawData['value'].length === 0) {
-            errors += ' value'
-        }
-        if (errors.length > 0) {
-            alert('invalid values in: ' + errors)
-            return false
-        }
-        return true
-
-    }
-</script>
 <body>
 <?php
 $now = new \DateTime();
 $startTime = clone($now);
 $startTime->sub(new \DateInterval('P7D'));
 $queryType = $params['query_type']??'history';
+$importMode = $params['import_mode'] ?? 'clean';
 ?>
 <div class="container mt-3 border rounded bg-light bg-gradient mt-2 p-3">
     <form id="upload-form" action="/upload" method="POST" enctype="multipart/form-data">
         <div class="row">
             <h5> Upload File:</h5>
+            <div class="col-md-4">
+                <select class="form-select" aria-label="Default select example" name="import_mode" id="import_mode">
+                    <option value="clean" <?= ($importMode == 'clean' ? 'selected=selected' :'');?>>Clean (Erase old data)</option>
+                    <option value="additive" <?= ($importMode == 'additive' ? 'selected=selected' :'');?>>Import only new Records</option>
+                </select>
+            </div>
             <div class="col-md-5">
 
                 <input type="file" name="filename" class="form-control"
@@ -447,6 +276,7 @@ $queryType = $params['query_type']??'history';
 
 <div class="modal fade" id="confirmModal" tabindex="-1" role="dialog" aria-labelledby="confirmModalLabel"
      aria-hidden="true">
+
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
@@ -458,11 +288,19 @@ $queryType = $params['query_type']??'history';
             <div class="modal-body">
                 <p>Do you want really want to cancel this transaction?</p>
                 <em id="recordInfo"></em>
+                <form id="deleteForm">
+                    <input type="hidden" id="delFirstName" name="first_name"/>
+                    <input type="hidden" id="delLastName" name="last_name"/>
+                    <input type="hidden" id="delLoincCode" name="loinc_code"/>
+                    <input type="hidden" id="delValidStartTime" name="valid_start_time"/>
+                    Cancellation time: <input type="datetime-local" id="delDeletedAt" name="deleted_at"/>
+                </form>
+
             </div>
             <div class="modal-footer text-center">
                 <input type="hidden" id="delete-id">
                 <button type="button" class="close btn btn-secondary" data-dismiss="modal">No, Keep Transaction</button>
-                <button type="button" id="delete-submit" class="btn btn-danger">Yes, Cancel Transaction</button>
+                <button type="button" id="deleteSubmit" class="btn btn-danger">Yes, Cancel Transaction</button>
             </div>
         </div>
     </div>

@@ -6,6 +6,13 @@ use App\Beans\MedaiRecord;
 
 class TemporalMedai
 {
+    public static function cleanData(){
+        $db = Db::getInstance();
+        $sql = 'truncate table TemporalMedai';
+        $db->query($sql);
+    }
+
+
     public static function find($id) {
         $db = Db::getInstance();
         $sql = "SELECT * FROM TemporalMedai where id=:id";
@@ -280,7 +287,7 @@ class TemporalMedai
         return self::find($id);
     }
 
-    public static function deleteRecordNaturalKey($firstName, $lastName, $loincCode, $validTime): bool
+    public static function deleteRecordNaturalKey($firstName, $lastName, $loincCode, $validTime, $deletedAt=null): bool
     {
 
         $client = Clients::findByName($firstName,$lastName);
@@ -297,19 +304,19 @@ class TemporalMedai
         if (empty($latest)){
             throw new \Exception('no valid record for requested {client, loinc, time}');
         }
-        return self::deleteRecordById($latest['id']);
+        return self::deleteRecordById($latest['id'],$deletedAt);
     }
 
     /**
      * @param $id
      * @return bool
      */
-    public static function deleteRecordById($id): bool
+    public static function deleteRecordById($id, $deletedAt=null): bool
     {
         $now = new \DateTime();
         $db = Db::getInstance();
         $upd['is_deleted'] = 1;
-        $upd['deleted_at'] = $now->format('Y-m-d H:i:s');
+        $upd['deleted_at'] = $deletedAt ?? $now->format('Y-m-d H:i:s');
         $rowCount = $db->update('TemporalMedai', $upd, 'id=' . $id);
         return ($rowCount > 0);
     }

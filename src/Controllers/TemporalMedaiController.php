@@ -18,8 +18,15 @@ class TemporalMedaiController extends BaseController
     {
         $uploadedFiles = $request->getUploadedFiles();
         $uploadedFile = $uploadedFiles['filename'];
+        $params = $request->getParsedBody();
+        $importMode =$params['import_mode'] ?? 'clean';
+
  echo "<pre>";
         if ($uploadedFile->getError() === UPLOAD_ERR_OK) {
+            if ($importMode=='clean'){
+                TemporalMedai::cleanData();
+            }
+
             $first = true;
             $headers = [];
             $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xlsx();
@@ -211,7 +218,10 @@ class TemporalMedaiController extends BaseController
                 $rawData['first_name'] ?? null,
                 $rawData['last_name'] ?? null,
                 $rawData['loinc_code'] ?? null,
-                $rawData['valid_start_time'] ?? null);
+                $rawData['valid_start_time'] ?? null,
+                    $rawData['deleted_at'] ?? null
+
+            );
             return $this->jsonResponse($response, [
                 'success'=>$success
             ]);
