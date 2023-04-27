@@ -37,7 +37,7 @@ class MedaiRecord
         $this->value = $data['value'] ?? null;
         $this->unit = $data['unit'] ?? null;
 
-        $sample = $data['valid_start_time']??$data['valid_stop_time']??$data['transaction_time']??null;
+        $sample = $data['valid_start_time'] ?? $data['valid_stop_time'] ?? $data['transaction_time'] ??null;
 
         $format = detectFormat($sample);
 
@@ -73,10 +73,6 @@ class MedaiRecord
         }
         $transactionTime =  (!empty($this->transaction_time) ? $this->transaction_time: new \DateTime() );
         $transactionTime->setTime($transactionTime->format('H'), $transactionTime->format('i'), 0);
-
-        $validStarTime = (!empty($this->valid_start_time) ? $this->valid_start_time: new \DateTime() );
-        $validStarTime->setTime($validStarTime->format('H'), $validStarTime->format('i'), 0);
-
 
         $validStarTime = (!empty($this->valid_start_time) ? $this->valid_start_time: new \DateTime() );
         $validStarTime->setTime($validStarTime->format('H'), $validStarTime->format('i'), 0);
@@ -164,7 +160,7 @@ class MedaiRecord
         if (!isset($map[$timeAspect])) {
             return null;
         }
-        $validEndTime = clone($validStartTime);
+        $validEndTime = \DateTimeImmutable::createFromMutable( $validStartTime );
         return $validEndTime->add(new \DateInterval($map[$timeAspect]));
 
 

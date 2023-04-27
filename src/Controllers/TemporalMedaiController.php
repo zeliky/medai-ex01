@@ -219,7 +219,7 @@ class TemporalMedaiController extends BaseController
                 $rawData['last_name'] ?? null,
                 $rawData['loinc_code'] ?? null,
                 $rawData['valid_start_time'] ?? null,
-                    $rawData['deleted_at'] ?? null
+                    (!is_null($rawData['deleted_at']) ? \DateTime::createFromFormat('Y-m-d H:i:s',$rawData['deleted_at']) :null)
 
             );
             return $this->jsonResponse($response, [

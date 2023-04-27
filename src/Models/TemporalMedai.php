@@ -192,7 +192,7 @@ class TemporalMedai
         }
         $offset = $page* $pageSize;
         if ($queryType=='retrieval') {
-            $sql .= "\n ORDER BY  transaction_time desc ";
+            $sql .= "\n ORDER BY valid_start_time desc, transaction_time desc ";
             $sql .= "\n LIMIT 1 ";
         } else {
             $sql .= "\n ORDER BY  valid_start_time ";
@@ -222,9 +222,13 @@ class TemporalMedai
     {
         static $i = 0;
         $record = new MedaiRecord($data);
+
         $values = $record->toDbRecord();
         $currentValues = self::getLatestRecord($record->client_id, $record->loinc_code, $record->valid_start_time );
         if (!empty($currentValues)){
+            if($currentValues['transaction_time'] !== $record->transaction_time->format('Y-m-d H:i:s')){
+                self::updateRecord($currentValues, $record->value, $record->transaction_time);
+            }
             throw new \Exception('same record already exist ');
         }
 
@@ -270,12 +274,12 @@ class TemporalMedai
         }
         self::updateRecord($currentValues, $newValue);
     }
-    public static function updateRecord($values, $newTestValue): array
+    public static function updateRecord($values, $newTestValue, $transactionTime=null): array
     {
+        if(is_null($transactionTime))
+            $transactionTime = new \DateTime();
 
-        $transactionTime = new \DateTime();
-
-        self::deleteRecordById($values['id']);
+        self::deleteRecordById($values['id'], $transactionTime);
         unset($values['id']);
         $values['value'] = $newTestValue;
         $values['transaction_time'] = $transactionTime->format('Y-m-d H:i:s');
@@ -289,7 +293,6 @@ class TemporalMedai
 
     public static function deleteRecordNaturalKey($firstName, $lastName, $loincCode, $validTime, $deletedAt=null): bool
     {
-
         $client = Clients::findByName($firstName,$lastName);
         if (empty($client)){
             throw new \Exception( 'Invalid client (first name/ last name)');
@@ -297,6 +300,10 @@ class TemporalMedai
         if ($validTime instanceof  \DateTime){
             $validTime->setTime($validTime->format('H'),$validTime->format('i'),0);
             $validTime = $validTime->format('Y-m-d H:i:s');
+        }
+        if ($deletedAt instanceof  \DateTime){
+            $deletedAt->setTime($deletedAt->format('H'),$deletedAt->format('i'),0);
+
         }
 
 
@@ -316,7 +323,7 @@ class TemporalMedai
         $now = new \DateTime();
         $db = Db::getInstance();
         $upd['is_deleted'] = 1;
-        $upd['deleted_at'] = $deletedAt ?? $now->format('Y-m-d H:i:s');
+        $upd['deleted_at'] = $deletedAt->format('Y-m-d H:i:s') ?? $now->format('Y-m-d H:i:s');
         $rowCount = $db->update('TemporalMedai', $upd, 'id=' . $id);
         return ($rowCount > 0);
     }
